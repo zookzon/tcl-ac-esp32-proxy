@@ -53,11 +53,13 @@ The TCL connector may look USB-shaped but is a proprietary AC interface. **Do no
 
 ## Upstream / attribution
 
-Originally based on `thedesp/tclac` at commit `9d9d6ec5c8caebebf5f46cb380b29d9acaab10be`.
+Originally based on `thedesp/tclac` at commit `9d9d6ec5c8caebebf5f46cb380b29d9acaab10be`, whose README identifies `I-am-nightingale/tclac` as the original project. A5 protocol research from `codypendant/aciq-minisplit-protocol` was also an important reference.
+
+See [Acknowledgements](ACKNOWLEDGEMENTS.md) and [Third-party notices](THIRD_PARTY_NOTICES.md) for the exact attribution and licensing status.
 
 ## License status
 
-**No license is asserted yet.** The upstream licensing/notice chain must be verified before adding a repository `LICENSE`.
+**No project-wide license is asserted yet.** No root `LICENSE` was found in the two TCL component lineage repositories during the 2026-09-19 audit, while `codypendant/aciq-minisplit-protocol` is MIT licensed. The production source must therefore be audited file-by-file before this repository is assigned a blanket license.
 
 ## Tested scope
 
