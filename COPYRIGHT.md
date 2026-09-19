@@ -49,9 +49,23 @@ Accordingly:
 
 ## Licensing status
 
-At this stage the repository intentionally has **no blanket project-wide LICENSE**.
+The project-original portions identified here are licensed under the MIT terms below. This is **not a blanket license for the entire repository**, because mixed-provenance and third-party portions retain their own copyright/license status.
+## License grant for project-original portions
 
-A future license may be applied to clearly separable original files or modules after provenance boundaries are documented. That license must not purport to relicense third-party material for which this project does not hold the necessary rights.
+The independently authored, project-original portions identified in this document are made available under the **MIT License**:
+
+Copyright © 2026 zookzon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of the project-original portions of this software and associated documentation files (the "Software"), to deal in those project-original portions without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of those project-original portions, and to permit persons to whom those project-original portions are furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the project-original portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+### Scope limitation
+
+This MIT grant applies **only** to material for which zookzon owns the copyright, including independently authored project-specific additions described above. It does not grant or alter rights in upstream or third-party material. Such material remains subject to the rights and licenses of its respective authors.
+
 
 ## Attribution
 
