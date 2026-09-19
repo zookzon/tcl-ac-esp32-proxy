@@ -1,0 +1,23 @@
+# Paste this as a Manual card in a Home Assistant dashboard.
+# Replace climate.air_conditioner if your climate entity ID is different.
+type: vertical-stack
+cards:
+  - type: thermostat
+    entity: climate.air_conditioner
+    features:
+      # Row 1: left Mode, right Fan mode
+      - type: climate-hvac-modes
+        style: dropdown
+      - type: climate-fan-modes
+        style: dropdown
+      # Row 2: left Swing mode, right Preset
+      - type: climate-swing-modes
+        style: dropdown
+      - type: climate-preset-modes
+        style: dropdown
+  - type: entities
+    entities:
+      # Replace this with the actual entity ID shown for Humidity Entity ID
+      # under the ESPHome device if you also want the input on this dashboard.
+      - entity: text.tcl_ac_humidity_entity_id
+        name: Humidity Entity ID

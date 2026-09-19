@@ -10,6 +10,8 @@ esphome:
     - priority: 600
       then:
         - lambda: |-
+            // Apply persisted feature flags before HA receives climate traits.
+            // Do not reboot here.
             id(tcl_ac).set_swing_feature_enabled(id(enable_swing_mode));
             id(tcl_ac).set_preset_feature_enabled(id(enable_preset));
             id(tcl_ac).set_target_temperature_step(id(temperature_step_half) ? 0.5f : 1.0f);
@@ -17,7 +19,11 @@ esphome:
       then:
         - delay: 5s
         - lambda: |-
+            // Template switches can execute their restore path during setup.
+            // Arm user-triggered actions only after boot has fully settled.
             id(feature_switches_armed) = true;
+            // Temperature Step is configuration, not telemetry. Publish it once
+            // after boot instead of polling/publishing the unchanged value every second.
             id(temperature_step_select).publish_state(
               id(temperature_step_half) ? std::string("0.5 °C") : std::string("1.0 °C")
             );
@@ -27,13 +33,18 @@ esp32:
   framework:
     type: arduino
 
+# The custom TCL driver is vendored locally from pinned upstream commit
+# 9d9d6ec5c8caebebf5f46cb380b29d9acaab10be and hardened in this project.
 external_components:
   - source:
       type: local
       path: components
     components: [tclac]
 
+# GPIO3/GPIO4 are dedicated to the proprietary TCL UART.
+# Never connect the air-conditioner USB-shaped cable to a PC or USB charger.
 uart:
+  # AC-facing UART (existing TCL proprietary connector)
   - id: tcl_uart
     tx_pin: GPIO3
     rx_pin: GPIO4
@@ -42,6 +53,8 @@ uart:
     parity: NONE
     stop_bits: 1
     rx_buffer_size: 256
+
+  # Factory Dongle-facing UART — electrically verified mapping
   - id: tcl_dongle_uart
     tx_pin: GPIO6
     rx_pin: GPIO5
@@ -51,6 +64,7 @@ uart:
     stop_bits: 1
     rx_buffer_size: 256
 
+# Keep hardware serial logging disabled so it cannot corrupt the TCL UART.
 logger:
   level: DEBUG
   baud_rate: 115200
@@ -61,7 +75,8 @@ wifi:
   password: !secret wifi_password
   output_power: 10dB
   fast_connect: true
-  power_save_mode: LIGHT
+  power_save_mode: LIGHT  
+#  min_auth_mode: WPA2
   ap:
     ssid: "TCLAC C3 Recovery"
     password: !secret fallback_ap_password
@@ -89,6 +104,9 @@ text:
       then:
         - lambda: id(tcl_ac).set_humidity_entity_id(x);
     set_action:
+      # A fresh Native API connection advertises the newly selected HA state
+      # subscription. This runs only after a user changes the text, not when
+      # the saved value is restored during boot.
       - delay: 750ms
       - lambda: App.safe_reboot();
 
@@ -97,6 +115,7 @@ time:
     id: a5_time
     timezone: Asia/Bangkok
     on_time:
+      # Close the previous day before resetting the daily accumulator.
       - seconds: 0
         minutes: 0
         hours: 0
@@ -107,6 +126,8 @@ time:
                 id(yesterday_energy).publish_state(id(yesterday_energy_value));
               }
           - sensor.integration.reset: today_energy
+      # Monthly Energy is calendar-month based and survives normal reboots.
+      # Run a few seconds after the daily rollover so both jobs are independent.
       - seconds: 5
         minutes: 0
         hours: 0
@@ -135,12 +156,18 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Calendar history: written only at the daily rollover.
   - id: yesterday_energy_value
     type: float
     restore_value: yes
     initial_value: '0.0'
 
 sensor:
+  # Direct A5 field 0x64 from the air conditioner. Do not derive watts from
+  # the old BB voltage/current candidates. All energy sensors integrate the
+  # AC-reported Input Power itself using the trapezoid method.
+
+  # Session total: deliberately starts from 0 after every ESP32 boot/restart.
   - platform: integration
     id: total_energy
     name: Total Energy
@@ -154,6 +181,9 @@ sensor:
     accuracy_decimals: 3
     filters:
       - multiply: 0.001
+
+  # Calendar-day accumulator. Persisted across ESP32 reboot/OTA and reset at
+  # local midnight after its final value is copied to Yesterday Energy.
   - platform: integration
     id: today_energy
     name: Today Energy
@@ -167,6 +197,8 @@ sensor:
     accuracy_decimals: 3
     filters:
       - multiply: 0.001
+
+  # Last completed calendar day. The backing global is flash-persisted.
   - platform: template
     id: yesterday_energy
     name: Yesterday Energy
@@ -177,6 +209,9 @@ sensor:
     update_interval: 60s
     lambda: |-
       return id(yesterday_energy_value);
+
+  # Calendar-month accumulator. Persisted across ESP32 reboot/OTA and reset
+  # at 00:00:05 on the first day of each month.
   - platform: integration
     id: monthly_energy
     name: Monthly Energy
@@ -190,6 +225,7 @@ sensor:
     accuracy_decimals: 3
     filters:
       - multiply: 0.001
+
   - platform: wifi_signal
     name: Wi-Fi Signal
     update_interval: 60s
@@ -206,16 +242,40 @@ climate:
     uart_id: tcl_uart
     dongle_uart_id: tcl_dongle_uart
     proxy_mode: false
-    a5_ack_only: true
+    a5_ack_only: true  # Permanent A5 owner + Factory Dongle bridge; NO HANDOFF
     name: Air Conditioner
     beeper: true
     show_display: true
     force_mode: false
     show_module_display: false
-    supported_modes: ["OFF", "AUTO", "COOL", "HEAT", "DRY", "FAN_ONLY"]
-    supported_fan_modes: ["AUTO", "QUIET", "LOW", "MIDDLE", "MEDIUM", "HIGH", "FOCUS", "DIFFUSE"]
-    supported_swing_modes: ["OFF", "VERTICAL", "HORIZONTAL", "BOTH"]
-    supported_presets: ["NONE", "ECO", "SLEEP"]
+    supported_modes:
+      - "OFF"
+      - "AUTO"
+      - "COOL"
+      - "HEAT"
+      - "DRY"
+      - "FAN_ONLY"
+    supported_fan_modes:
+      - "AUTO"
+      - "QUIET"
+      - "LOW"
+      - "MIDDLE"
+      - "MEDIUM"
+      - "HIGH"
+      - "FOCUS"
+      - "DIFFUSE"
+    supported_swing_modes:
+      - "OFF"
+      - "VERTICAL"
+      - "HORIZONTAL"
+      - "BOTH"
+    supported_presets:
+      - "NONE"
+      - "ECO"
+      - "SLEEP"
+    # Production-facing sensors only. Experimental/raw diagnostics are
+    # intentionally not exposed as Home Assistant entities; they remain
+    # available in the TCL diagnostic log.
     a5_input_power:
       id: a5_input_power
       name: Input Power
@@ -241,13 +301,17 @@ climate:
         current_temperature: 0.1 °C
 
 select:
+  # Target-temperature grid advertised to Home Assistant. The selection is
+  # persisted via a global and applied before HA receives Climate traits.
   - platform: template
     name: Temperature Step
     id: temperature_step_select
     entity_category: config
     optimistic: false
     update_interval: never
-    options: ["1.0 °C", "0.5 °C"]
+    options:
+      - "1.0 °C"
+      - "0.5 °C"
     lambda: |-
       return id(temperature_step_half) ? std::string("0.5 °C") : std::string("1.0 °C");
     set_action:
@@ -258,6 +322,7 @@ select:
             - lambda: |-
                 id(temperature_step_half) = (x == "0.5 °C");
                 id(tcl_ac).set_target_temperature_step(id(temperature_step_half) ? 0.5f : 1.0f);
+                ESP_LOGI("TCL", "Temperature Step changed to %s; rebooting to refresh HA climate traits", x.c_str());
             - delay: 1500ms
             - lambda: App.safe_reboot();
 
@@ -276,6 +341,9 @@ binary_sensor:
     entity_category: diagnostic
 
 switch:
+  # Permanent reverse-engineering switch. OFF keeps normal operation quiet;
+  # ON exposes complete valid A5 state frames and Factory Dongle frames.
+  # This only changes logging and never changes V5 mediator routing/control.
   - platform: template
     name: Enable RAW A5 Logger
     id: enable_raw_a5_logger_switch
@@ -284,9 +352,16 @@ switch:
     lambda: |-
       return id(tcl_ac).get_a5_raw_logger();
     turn_on_action:
-      - lambda: 'id(tcl_ac).set_a5_raw_logger(true);'
+      - lambda: |-
+          id(tcl_ac).set_a5_raw_logger(true);
+          ESP_LOGW("A5-RAW", "RAW A5 logger ENABLED");
     turn_off_action:
-      - lambda: 'id(tcl_ac).set_a5_raw_logger(false);'
+      - lambda: |-
+          id(tcl_ac).set_a5_raw_logger(false);
+          ESP_LOGW("A5-RAW", "RAW A5 logger DISABLED");
+
+  # Native A5 feature switches. State is read back from AC delta reports;
+  # commands use the verified A5 field IDs and do not touch the V5 mediator.
   - platform: template
     name: Beep
     id: beep_switch
@@ -298,6 +373,7 @@ switch:
       - lambda: 'id(tcl_ac).a5_send_beep_setting_(true);'
     turn_off_action:
       - lambda: 'id(tcl_ac).a5_send_beep_setting_(false);'
+
   - platform: template
     name: Display Light
     id: display_light_switch
@@ -309,6 +385,7 @@ switch:
       - lambda: 'id(tcl_ac).a5_send_bool_field_(0x1E, true, "CLIMATE display light");'
     turn_off_action:
       - lambda: 'id(tcl_ac).a5_send_bool_field_(0x1E, false, "CLIMATE display light");'
+
   - platform: template
     name: Drying
     id: drying_switch
@@ -320,6 +397,7 @@ switch:
       - lambda: 'id(tcl_ac).a5_send_bool_field_(0x27, true, "CLIMATE drying");'
     turn_off_action:
       - lambda: 'id(tcl_ac).a5_send_bool_field_(0x27, false, "CLIMATE drying");'
+
   - platform: template
     name: Health
     id: health_switch
@@ -331,6 +409,10 @@ switch:
       - lambda: 'id(tcl_ac).a5_send_bool_field_(0x15, true, "CLIMATE health");'
     turn_off_action:
       - lambda: 'id(tcl_ac).a5_send_bool_field_(0x15, false, "CLIMATE health");'
+
+  # These switches control whether the capability is advertised on the HA
+  # climate entity. A Native API reconnect is required for HA to receive new
+  # climate traits, so the node safely reboots after a change.
   - platform: template
     name: Enable Swing Mode
     id: enable_swing_mode_switch
@@ -357,6 +439,7 @@ switch:
                 id(enable_swing_mode) = false;
             - delay: 1500ms
             - lambda: App.safe_reboot();
+
   - platform: template
     name: Enable Preset
     id: enable_preset_switch
@@ -396,11 +479,19 @@ text_sensor:
       uint8_t hours = (total % 86400ULL) / 3600ULL;
       uint8_t minutes = (total % 3600ULL) / 60ULL;
       uint8_t seconds = total % 60ULL;
+
       char buffer[40];
-      if (days > 0) snprintf(buffer, sizeof(buffer), "%llud %uh %um %us", (unsigned long long) days, hours, minutes, seconds);
-      else if (hours > 0) snprintf(buffer, sizeof(buffer), "%uh %um %us", hours, minutes, seconds);
-      else if (minutes > 0) snprintf(buffer, sizeof(buffer), "%um %us", minutes, seconds);
-      else snprintf(buffer, sizeof(buffer), "%us", seconds);
+      if (days > 0) {
+        snprintf(buffer, sizeof(buffer), "%llud %uh %um %us",
+                 (unsigned long long) days, hours, minutes, seconds);
+      } else if (hours > 0) {
+        snprintf(buffer, sizeof(buffer), "%uh %um %us",
+                 hours, minutes, seconds);
+      } else if (minutes > 0) {
+        snprintf(buffer, sizeof(buffer), "%um %us", minutes, seconds);
+      } else {
+        snprintf(buffer, sizeof(buffer), "%us", seconds);
+      }
       return {buffer};
 
   - platform: wifi_info
