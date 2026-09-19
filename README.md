@@ -49,6 +49,58 @@ UART TX and RX must be crossed:
 
 **Do not connect two TX outputs together.** See [docs/WIRING.md](docs/WIRING.md) for the complete diagram, wire colors, pin layout, and safety notes.
 
+## Compatibility / air-conditioner models
+
+### Fully tested with this repository
+
+- **TCL TAC-PRO12PEC — TESTED / CONFIRMED.** This is the development and production test unit for this repository. The current A5 115200 8N1 firmware, ESP32-C3 control path, Home Assistant behavior, and dual-UART factory-dongle mediator have been tested on this model and are the configuration this project considers fully validated.
+
+### A5-family reference hardware
+
+- **ACiQ ACIQ-K18W-W-32-HP2300 — A5 REFERENCE / NOT TESTED WITH THIS REPOSITORY.** The `codypendant/aciq-minisplit-protocol` project reports hardware-proven A5 115200 8N1 operation on this model with a TCL WBR1 module. Its protocol research is an important reference for this project. Similarity strongly suggests useful compatibility, but this repository's complete firmware and dual-UART mediator have **not** been validated by us on that model.
+
+### Models reported working by the upstream TCL `tclac` lineage
+
+The upstream `I-am-nightingale/tclac` project reports the following models as tested with its TCL component. These reports are useful compatibility leads, but that upstream project primarily represents the older TCL/compatible protocol family and **does not prove that these models use this repository's A5 115200 8N1 protocol or that our dual-UART mediator will work unchanged**:
+
+- Axioma ASX09H1/ASB09H1
+- Ballu BSAI-12HN1_15Y
+- Ballu Discovery DC BSVI-07HN8
+- Ballu Discovery DC BSVI-09HN8
+- Ballu Discovery DC BSVI-12HN8
+- Daichi AIR20AVQ1/AIR20FV1
+- Daichi AIR25AVQS1R-1/AIR25FVS1R-1
+- Daichi AIR35AVQS1R-1/AIR35FVS1R-1
+- Daichi DA35EVQ1-1/DF35EV1-1
+- Dantex RK-12SATI/RK-12SATIE
+- Ecostar Radium KVS-RAD09CH
+- iFFALCON F1 18
+- Royal Clima Gloria Inverter
+- Royal Clima Pandora RC-PDC28HN
+- Tesla TT27TP61S-0932IAWUV
+- TCL ELI ONF 12
+- TCL Liferise ONF 09
+- TCL TAC-CT09INV/R
+- TCL One Inverter TACM-09HRID/E1
+- TCL TAC-07CHSA/TPG-W
+- TCL TAC-09CHSA/TPG
+- TCL TAC-09CHSA/DSEI-W
+- TCL TAC-09HRID/E1
+- TCL TAC-12CHSA/TPG
+- TCL TAC-12CHSA/TPGI
+- TCL TAC-XAL24I
+- TCL TPG31IHB
+
+The upstream author also warns that even nominally identical AC model numbers can ship with different Wi-Fi/UART hardware or wiring. Therefore **model number alone is not enough to guarantee compatibility**.
+
+For an untested unit, first identify the UART electrically and determine its framing/baud before transmitting. In particular, do not assume that an upstream BB/9600/8E1-compatible model is automatically compatible with this project's A5/115200/8N1 production backend.
+
+**Compatibility labels used here:**
+
+- **TESTED / CONFIRMED** — tested with this repository's firmware/hardware arrangement.
+- **A5 REFERENCE** — documented A5 hardware from a protocol-reference project, but not tested by us with the complete firmware.
+- **UPSTREAM-REPORTED** — reported working by an upstream TCL project; possible candidate only, not a compatibility guarantee for this A5 build.
+
 ## Current features
 
 The production build provides:
