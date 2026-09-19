@@ -34,6 +34,17 @@ Production configuration:
 
 See [Current Architecture](docs/CURRENT-ARCHITECTURE.md) and [Wiring](docs/WIRING.md).
 
+## Tested hardware / parts
+
+Only the following additional parts are required for the tested build:
+
+| Part | Requirement | Example purchase link |
+|---|---|---|
+| ESP32 board | **ESP32-C3 Super Mini** | [AliExpress](https://www.aliexpress.com/item/1005005967641936.html) |
+| USB pigtails | **USB-A Female + USB-A Male, 4-wire** | [AliExpress](https://www.aliexpress.com/item/1005008997291374.html) |
+
+The links are examples of the parts used for this project, not affiliate links. Equivalent parts may be used, but the USB pigtails must expose all **4 wires**. Do not use 2-wire power-only pigtails. Verify the actual pinout/continuity before connecting anything to the air conditioner.
+
 ## Wiring
 
 UART TX and RX must be crossed:
@@ -115,7 +126,7 @@ The production build provides:
 - Compressor Target and Compressor Actual sensors
 - Total, Today, Yesterday, and Monthly Energy derived by integrating AC-reported Input Power
 - Wi-Fi diagnostics
-- Human-readable uptime, updated every 60 seconds
+- Native ESPHome uptime sensor
 - Configurable 0.5 °C / 1.0 °C target-temperature step
 
 The source code is the final authority for implemented behavior. Experimental/raw protocol fields remain diagnostic until validated.
@@ -183,7 +194,8 @@ This is not a blanket relicensing of the entire repository. Upstream and third-p
 Current production work is validated specifically against:
 
 - TCL TAC-PRO12PEC
-- ESP32-C3
+- ESP32-C3 Super Mini
+- USB-A Female/Male 4-wire pigtails
 - The tested factory TCL/WBR1 dongle arrangement
 
 Compatibility with other models is not guaranteed.
