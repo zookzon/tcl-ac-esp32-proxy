@@ -232,8 +232,7 @@ sensor:
     entity_category: diagnostic
   - platform: uptime
     id: uptime_seconds
-    name: Uptime Seconds
-    internal: true
+    name: Uptime
     update_interval: 60s
 
 climate:
@@ -468,32 +467,6 @@ switch:
             - lambda: App.safe_reboot();
 
 text_sensor:
-  - platform: template
-    name: Uptime
-    id: uptime_formatted
-    entity_category: diagnostic
-    update_interval: 60s
-    lambda: |-
-      uint64_t total = (uint64_t) id(uptime_seconds).state;
-      uint64_t days = total / 86400ULL;
-      uint8_t hours = (total % 86400ULL) / 3600ULL;
-      uint8_t minutes = (total % 3600ULL) / 60ULL;
-      uint8_t seconds = total % 60ULL;
-
-      char buffer[40];
-      if (days > 0) {
-        snprintf(buffer, sizeof(buffer), "%llud %uh %um %us",
-                 (unsigned long long) days, hours, minutes, seconds);
-      } else if (hours > 0) {
-        snprintf(buffer, sizeof(buffer), "%uh %um %us",
-                 hours, minutes, seconds);
-      } else if (minutes > 0) {
-        snprintf(buffer, sizeof(buffer), "%um %us", minutes, seconds);
-      } else {
-        snprintf(buffer, sizeof(buffer), "%us", seconds);
-      }
-      return {buffer};
-
   - platform: wifi_info
     ip_address:
       name: IP Address
