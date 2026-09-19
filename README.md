@@ -15,7 +15,19 @@ This project began from `thedesp/tclac` commit `9d9d6ec5c8caebebf5f46cb380b29d9a
 - AC state is mirrored to the factory dongle.
 - Home Assistant state is based on AC read-back, not optimistic command state.
 
-See [Current architecture](docs/CURRENT-ARCHITECTURE.md).
+See [Current architecture](docs/CURRENT-ARCHITECTURE.md) and the [wiring guide](docs/WIRING.md).
+
+## Wiring
+
+The tested setup uses two independent UARTs. UART TX/RX must be crossed:
+
+- Factory dongle TX -> ESP32 GPIO5 (RX)
+- Factory dongle RX <- ESP32 GPIO6 (TX)
+- TCL AC TX / D- -> ESP32 GPIO4 (RX)
+- TCL AC RX / D+ <- ESP32 GPIO3 (TX)
+- 5V and GND are shared between the AC, ESP32-C3 and factory dongle.
+
+**See the complete ASCII diagram, wire colors and mapping table in [docs/WIRING.md](docs/WIRING.md).**
 
 ## Features
 
@@ -34,7 +46,7 @@ The TCL connector may look USB-shaped but is a proprietary AC interface. **Do no
 ## Install
 
 1. Copy `secrets.example.yaml` to `secrets.yaml` and replace every placeholder.
-2. Review GPIO assignments against your board/wiring.
+2. Review [docs/WIRING.md](docs/WIRING.md) and verify GPIO assignments against your board.
 3. Validate and compile with ESPHome.
 4. First boot with RAW A5 logging disabled.
 5. Verify AC read-back and factory-dongle coexistence before relying on automations.
