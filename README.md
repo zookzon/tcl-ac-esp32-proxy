@@ -1,49 +1,135 @@
-# TCL TAC-PRO12PEC ESPHome controller
+# TCL TAC-PRO12PEC ESPHome A5 Controller + Factory Dongle Mediator
 
-Custom ESPHome component for a TCL TAC-PRO12PEC air conditioner connected to
-an ESP32-C3 through the unit's proprietary UART interface.
+ESPHome firmware for controlling a **TCL TAC-PRO12PEC** with an **ESP32-C3** while retaining the original TCL/WBR1 factory Wi-Fi dongle on a separate UART.
 
-This tree is based on `thedesp/tclac` commit
-`9d9d6ec5c8caebebf5f46cb380b29d9acaab10be`, with compatibility, parser,
-diagnostic, Home Assistant, and safety changes proven during testing on the
-target unit.
+The current tested production architecture uses the **A5 protocol at 115200 baud, 8N1**. The ESP32-C3 remains the permanent A5 owner toward the air conditioner; there is no UART ownership handoff.
 
-Start here:
+> Historical BB/9600/8E1 experiments are retained in this repository for engineering traceability, but they are **not** the current production backend.
 
-- [`PROJECT-HANDOFF.md`](PROJECT-HANDOFF.md) — complete Thai handoff document,
-  history, architecture, installation, known problems, and remaining work.
-- [`PACKET-MAP.md`](PACKET-MAP.md) — RX/TX packet map, formulas, observations,
-  and confidence levels.
-- [`TEST-PLAN.md`](TEST-PLAN.md) — reproducible logging and reverse-engineering
-  procedure for the next maintainer.
-- [`TESTING-ELECTAPP.md`](TESTING-ELECTAPP.md) — legacy detailed diagnostic
-  notes retained for traceability.
-- [`tclac-c3-full.yaml`](tclac-c3-full.yaml) — current ESPHome configuration.
+## Production architecture
+
+```text
+Home Assistant
+      |
+  ESPHome API
+      |
+  ESP32-C3
+   |      \
+   |       \ GPIO6 TX / GPIO5 RX — 115200 8N1
+   |        +---------------- Factory TCL/WBR1 dongle
+   |
+   + GPIO3 TX / GPIO4 RX — 115200 8N1
+      |
+  TCL TAC-PRO12PEC
+```
+
+Production configuration:
+
+- `a5_ack_only: true`
+- `proxy_mode: false`
+- AC UART: GPIO3 TX / GPIO4 RX, 115200 8N1
+- Factory dongle UART: GPIO6 TX / GPIO5 RX, 115200 8N1
+- AC read-back is authoritative; Home Assistant state is not optimistically overwritten by commands.
+- Factory-dongle coexistence is mediated by the ESP32 instead of electrically paralleling two UART TX outputs.
+
+See [Current Architecture](docs/CURRENT-ARCHITECTURE.md) and [Wiring](docs/WIRING.md).
+
+## Wiring
+
+UART TX and RX must be crossed:
+
+| Device side | ESP32-C3 |
+|---|---|
+| Factory dongle TX (white) | GPIO5 (RX) |
+| Factory dongle RX (red/pink) | GPIO6 (TX) |
+| TCL AC TX / D- (white) | GPIO4 (RX) |
+| TCL AC RX / D+ (pink) | GPIO3 (TX) |
+| 5V | Shared 5V |
+| GND | Shared GND |
+
+**Do not connect two TX outputs together.** See [docs/WIRING.md](docs/WIRING.md) for the complete diagram, wire colors, pin layout, and safety notes.
+
+## Current features
+
+The production build provides:
+
+- Climate modes: OFF, AUTO, COOL, HEAT, DRY, FAN_ONLY
+- Fan modes: AUTO, QUIET, LOW, MIDDLE, MEDIUM, HIGH, FOCUS, DIFFUSE
+- Swing: OFF, VERTICAL, HORIZONTAL, BOTH
+- Presets exposed by the current configuration
+- A5 read-back/control for supported AC features
+- Indoor and outdoor temperature reporting
+- AC-reported Input Power
+- Compressor Target and Compressor Actual sensors
+- Total, Today, Yesterday, and Monthly Energy derived by integrating AC-reported Input Power
+- Wi-Fi diagnostics
+- Human-readable uptime, updated every 60 seconds
+- Configurable 0.5 °C / 1.0 °C target-temperature step
+
+The source code is the final authority for implemented behavior. Experimental/raw protocol fields remain diagnostic until validated.
+
+## Energy behavior
+
+`Input Power` is decoded from the AC-reported A5 field used by this build. Energy entities integrate that power locally using ESPHome's trapezoid integration:
+
+- **Total Energy** — session total; resets after ESP32 reboot.
+- **Today Energy** — persisted and reset at local midnight.
+- **Yesterday Energy** — last completed calendar day, persisted.
+- **Monthly Energy** — persisted and reset on the first day of the month.
+
+These values are local integrations of AC-reported power, not utility-grade metering. Compare against an external meter before relying on them for billing or precision energy analysis.
+
+## Installation
+
+1. Clone or download this repository.
+2. Copy `secrets.example.yaml` to your ESPHome secrets configuration and replace all placeholders.
+3. Review [docs/WIRING.md](docs/WIRING.md) before connecting hardware.
+4. Use `tclac-c3-full.yaml` as the production ESPHome configuration.
+5. Validate/compile with a compatible ESPHome version.
+6. Flash the ESP32-C3 and verify AC read-back before relying on automations.
+7. Verify the factory TCL dongle independently after the ESP32 side is stable.
+
+The tested source is vendored locally under `components/tclac/`; no runtime download of the TCL component is required.
+
+## Repository map
+
+- [`tclac-c3-full.yaml`](tclac-c3-full.yaml) — production ESPHome configuration
+- [`components/tclac/`](components/tclac/) — vendored custom TCL component
+- [`docs/WIRING.md`](docs/WIRING.md) — production wiring
+- [`docs/CURRENT-ARCHITECTURE.md`](docs/CURRENT-ARCHITECTURE.md) — current data path and ownership model
+- [`docs/PROTOCOL-STATUS.md`](docs/PROTOCOL-STATUS.md) — protocol evidence/status matrix
+- [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — troubleshooting
+- [`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md) — upstream and research credits
+- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) — third-party licensing notes
+
+Additional root-level engineering notes are retained as development history. Some describe earlier BB/proxy experiments and must not be treated as production instructions.
+
+## Protocol evidence policy
+
+Protocol knowledge is separated into **CONFIRMED**, **OBSERVED**, **HYPOTHESIS**, and **UNKNOWN**. A plausible byte value is not assigned a meaning without evidence. For current protocol status, see [docs/PROTOCOL-STATUS.md](docs/PROTOCOL-STATUS.md).
 
 ## Safety
 
-The air conditioner's USB-shaped connector is **not USB**. Never connect it to
-a computer or USB charger. It carries the TCL proprietary serial interface.
+The air conditioner's USB-shaped connector is **not a standard USB interface**. Do not connect it to a PC or USB charger.
 
-## Current validated build
+Power the AC down before changing wiring. Verify the pinout of your exact ESP32-C3 board revision and TCL hardware. The documented wiring is for the tested TAC-PRO12PEC setup; other TCL models or factory-dongle revisions may differ.
 
-- ESPHome: 2026.7.4
-- Board: ESP32-C3 (`esp32-c3-devkitm-1`)
-- UART: GPIO3 TX, GPIO4 RX, 9600 baud, 8 data bits, even parity, 1 stop bit
-- Full compile: passed
-- RAM: 33.2%
-- Flash: 56.0%
+## Upstream and protocol research
 
-No credentials or generated build cache are included in the source archive.
+This project began from `thedesp/tclac` commit `9d9d6ec5c8caebebf5f46cb380b29d9acaab10be`, whose README identifies `I-am-nightingale/tclac` as the original project. The A5 work also used `codypendant/aciq-minisplit-protocol` as an important protocol reference.
 
-## Factory TCL Dongle + ESP32-C3 Proxy Mode
+See [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-This project now includes an experimental dual-UART proxy mode so the original TCL Wi-Fi dongle and ESPHome/Home Assistant can coexist without placing two UART TX outputs in parallel. See `PROXY-MODE.md` for wiring, configuration, packet logging, and the first-test procedure.
+## License status
 
+No project-wide license is asserted yet. The TCL component lineage did not expose a repository-root license during the 2026-09-19 audit, while `codypendant/aciq-minisplit-protocol` is MIT licensed. Source provenance must be resolved file-by-file before assigning a blanket license to this repository.
 
-## HA sensor grouping / energy note (2026-09-17)
+## Tested scope
 
-- `Outdoor Temperature` is a normal measurement sensor (not a diagnostic entity), so Home Assistant groups it with Indoor Temperature, Current, Power and Energy.
-- `Compressor Power (Estimated)` and `Compressor Energy (Estimated)` remain local estimates.
-- Research of the TCL Home unofficial integration shows its Today/Yesterday Energy Consumption values are fetched on demand from TCL's cloud API and refreshed hourly; this does not establish a local UART BB energy field.
-- A separate reverse-engineered local UART protocol documents CMD 0x0A as a power/status query, but its observed response does not identify a validated kWh counter. Therefore no unverified UART byte is exposed as energy in this build.
+Current production work is validated specifically against:
+
+- TCL TAC-PRO12PEC
+- ESP32-C3
+- The tested factory TCL/WBR1 dongle arrangement
+
+Compatibility with other models is not guaranteed.
