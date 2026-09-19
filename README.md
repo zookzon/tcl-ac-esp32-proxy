@@ -122,7 +122,9 @@ See [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) and [THIRD_PARTY_NOTICES.md](THIR
 
 ## License status
 
-No project-wide license is asserted yet. The TCL component lineage did not expose a repository-root license during the 2026-09-19 audit, while `codypendant/aciq-minisplit-protocol` is MIT licensed. Source provenance must be resolved file-by-file before assigning a blanket license to this repository.
+**Project-original portions © 2026 zookzon are available under the MIT License**, including independently authored project-specific work such as the dual-UART factory-dongle mediation implementation where the project owns the copyright. You may use, modify, distribute, and build upon those portions under the MIT terms while preserving the applicable copyright and permission notice.
+
+This is not a blanket relicensing of the entire repository. Upstream and third-party portions remain subject to their respective copyrights and licenses. See [COPYRIGHT.md](COPYRIGHT.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Tested scope
 
