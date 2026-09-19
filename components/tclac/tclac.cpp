@@ -1465,6 +1465,24 @@ void tclacClimate::a5_decode_state_() {
 			size_t l=a5_frame_[i+1]; if(i+2+l<=n){ i += l+3; continue; }
 		}
 		uint8_t v=a5_frame_[i+1];
+
+		// Field 0x25 (persistent Beep policy) has two observed report layouts:
+		//   delta:      00 25 00/01
+		//   full state: 25 00/01 00
+		// A frame ending in ambiguous "25 00" is not sufficient evidence of
+		// Beep=OFF; treating it as authoritative caused HA to flip OFF while the
+		// appliance remained ON.  Accept 0x25 only when the complete 3-byte
+		// record is present.  This preserves the proven delta and rejoin/full-
+		// state reports while ignoring a truncated/ambiguous tail.
+		if (fid == 0x25) {
+			if (i + 2 < n && v <= 1 && a5_frame_[i+2] == 0x00) {
+				a5_state_beep_ = (v != 0);
+				a5_state_beep_valid_ = true;
+			}
+			i += 3;
+			continue;
+		}
+
 		switch(fid) {
 			case 0x01: a5_state_power_=(v!=0); a5_state_power_valid_=true; break;
 			case 0x12: if(v<=4){a5_state_mode_=v;a5_state_mode_valid_=true;} break;
@@ -1474,7 +1492,6 @@ void tclacClimate::a5_decode_state_() {
 			case 0x13: a5_state_eco_=(v!=0); a5_state_eco_valid_=true; break;
 			case 0x22: if(v<=3){a5_state_sleep_=v; a5_state_sleep_valid_=true;} break;
 			case 0x1E: a5_state_display_light_=(v!=0); a5_state_display_light_valid_=true; break;
-			case 0x25: a5_state_beep_=(v!=0); a5_state_beep_valid_=true; break;
 			case 0x15: a5_state_health_=(v!=0); a5_state_health_valid_=true; break;
 			case 0x27: a5_state_drying_=(v!=0); a5_state_drying_valid_=true; break;
 			default: break;
